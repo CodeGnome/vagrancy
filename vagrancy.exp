@@ -1,0 +1,133 @@
+#!/usr/bin/env tclsh8.6
+# vim: ft=tcl sw=4
+
+# Purpose:
+#     Handle common Vagrant tasks from the top level of a code base.
+#     This is particularly useful when the Vagrantfile is tucked away
+#     inside a subdirectory or submodule within the source tree, and
+#     avoids the need to manage VAGRANT_CWD and relative paths in any
+#     provisioning or configuration files.
+#
+# Copyright & License:
+#
+#     Copyright © 2015, 2016, 2017 Todd A. Jacobs
+#
+#     This program is free software: you can redistribute it and/or
+#     modify it under the terms of the GNU General Public License as
+#     published by the Free Software Foundation, either version 3 of the
+#     License, or (at your option) any later version.
+#
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#     General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see
+#     <http://www.gnu.org/licenses/>.
+
+package require Tcl 8.6
+package require Expect 5.45
+package require cmdline 1.5
+
+######################################################################
+# Default Values
+######################################################################
+set timeout 10
+set halt_suspend_timeout 300
+set provisioning_timeout 1800
+set vm_id .vagrant/machines/default/virtualbox/id
+
+######################################################################
+# Options
+######################################################################
+set options {
+    { v.arg vagrant "set Vagrant directory" }
+    { h             "halt Vagrant" }
+    { p             "(re-)provision Vagrant" }
+    { r             "reload Vagrant" }
+    { s             "suspend Vagrant" }
+}
+
+set usage ": MyCommandName \[options] filename ...\noptions:"
+
+try {
+    array set params [::cmdline::getoptions argv $options $usage]
+} trap {CMDLINE USAGE} {msg o} {
+    puts $msg
+    exit 1
+}
+
+set vagrant_dir $params(v)
+
+######################################################################
+# Functions
+######################################################################
+proc vagrant_running {} {
+    set output [exec vagrant status]
+    set status [regexp "default.*?running" $output]
+    return $status
+}
+
+proc vagrant_up {} {
+    global provisioning_timeout
+    spawn vagrant up
+    expect -timeout $provisioning_timeout eof
+}
+
+proc vagrant_ssh {} {
+    spawn vagrant ssh -- -S none
+    expect "$ "
+    interact
+}
+
+proc vagrant_suspend {} {
+    global halt_suspend_timeout
+    spawn vagrant suspend
+    expect -timeout $halt_suspend_timeout eof
+}
+
+proc vagrant_halt {} {
+    global halt_suspend_timeout
+    spawn vagrant halt
+    expect -timeout $halt_suspend_timeout eof
+}
+
+proc vagrant_reload {} {
+    global halt_suspend_timeout
+    spawn vagrant reload
+    expect -timeout $halt_suspend_timeout eof
+}
+
+proc vagrant_provision {} {
+    global provisioning_timeout
+    spawn vagrant up --provision
+    expect -timeout $provisioning_timeout eof
+}
+
+######################################################################
+# Main
+######################################################################
+cd $vagrant_dir
+
+if { $params(s) } {
+    vagrant_suspend
+} elseif { $params(h) } {
+    vagrant_halt
+} elseif { $params(r) } {
+    vagrant_reload
+    vagrant_ssh
+} elseif { $params(p) } {
+    vagrant_provision
+} elseif { [vagrant_running] } {
+    vagrant_ssh
+} elseif { [file exists $vm_id] } {
+    vagrant_up
+    vagrant_ssh
+} else {
+    spawn vagrant up --provider virtualbox --provision
+    expect -timeout $provisioning_timeout eof
+    spawn vagrant ssh -- -O exit
+    expect eof
+    vagrant_ssh
+}
