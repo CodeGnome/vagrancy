@@ -109,6 +109,10 @@ proc is_current_dir {dir} {
     expr { [file tail [pwd]] == $dir }
 }
 
+proc is_parent_dir {dir} {
+    expr { [file isdirectory $dir] }
+}
+
 proc find_vagrant_dir {} {
     global vagrant_dir
     if { [is_current_dir $vagrant_dir] } {
