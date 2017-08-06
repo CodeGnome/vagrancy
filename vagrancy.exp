@@ -119,6 +119,14 @@ proc is_not_root {dir} {
     expr { $dir_length > 0 }
 }
 
+# Move up the file tree until we're in the named directory or the root.
+proc traverse_upto {dir} {
+    while { [is_not_root [pwd]] } {
+        cd ..
+        if { [is_current_dir $dir] } { break }
+    }
+}
+
 proc find_vagrant_dir {} {
     global vagrant_dir
     if { [is_current_dir $vagrant_dir] } {
