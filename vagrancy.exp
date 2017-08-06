@@ -135,11 +135,7 @@ proc find_vagrant_dir {} {
         # Move down into the right directory.
         cd $vagrant_dir
     } else {
-        # Move up the file tree until we're in the named directory.
-        while { [string length [file tail [pwd]]] > 0 } {
-            cd ..
-            if { [is_current_dir $vagrant_dir] } { break }
-        }
+        traverse_upto $vagrant_dir
     }
 }
 
