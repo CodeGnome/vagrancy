@@ -105,6 +105,26 @@ proc vagrant_provision {} {
     expect -timeout $provisioning_timeout eof
 }
 
+proc is_current_dir {dir} {
+    expr { [file tail [pwd]] == $dir }
+}
+
+proc find_vagrant_dir {} {
+    global vagrant_dir
+    if { [is_current_dir $vagrant_dir] } {
+        # Do nothing; we're already here!
+    } elseif { [file isdirectory $vagrant_dir] } {
+        # Move down into the right directory.
+        cd $vagrant_dir
+    } else {
+        # Move up the file tree until we're in the named directory.
+        while { [string length [file tail [pwd]]] > 0 } {
+            cd ..
+            if { [is_current_dir $vagrant_dir] } { break }
+        }
+    }
+}
+
 ######################################################################
 # Main
 ######################################################################
